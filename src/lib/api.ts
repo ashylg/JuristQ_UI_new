@@ -22,7 +22,14 @@ export async function sendMessage(
     jurisdiction?: string,
     category?: string,
     deepAnalysis?: boolean,
-    reasoningEffort?: string
+    reasoningEffort?: string,
+    options?: {
+        modelTier?: "standard" | "advanced" | "expert";
+        outputTone?: "plain" | "academic";
+        showThinking?: boolean;
+        stepByStep?: boolean;
+        citeAuthorities?: boolean;
+    }
 ): Promise<ChatResponse> {
     try {
         const res = await fetch(`${API_URL}/v1/chat`, {
@@ -34,14 +41,15 @@ export async function sendMessage(
             body: JSON.stringify({
                 message,
                 chat_id: chatId,
-                // model: "gpt-4o-mini", // Let backend handle smart selection
-                jurisdictions: jurisdiction ? [jurisdiction] : ["US"], // Default jurisdiction if not provided
-                deep_analysis: deepAnalysis, // Pass the flag
-                reasoning_effort: reasoningEffort, // Pass reasoning effort override
-                // Map category to document types or just filter if backend supports it.
-                // For now, we assume backend search uses these to filter.
-                // We can also pass 'category' if the backend accepted it, but it accepts 'document_types'
-                // Let's interpret category broadly for doc types for now or add to context message.
+                jurisdictions: jurisdiction ? [jurisdiction] : ["NZ"],
+                category,
+                deep_analysis: deepAnalysis,
+                reasoning_effort: reasoningEffort,
+                model_tier: options?.modelTier,
+                output_tone: options?.outputTone,
+                show_thinking: options?.showThinking,
+                step_by_step: options?.stepByStep,
+                cite_authorities: options?.citeAuthorities,
             }),
         });
 

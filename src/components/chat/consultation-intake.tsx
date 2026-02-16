@@ -19,13 +19,12 @@ export function ConsultationIntake({ onStart }: ConsultationIntakeProps) {
 
     // Hardcoded for V1 stability, eventually fetch from API /v1/resources/jurisdictions
     const jurisdictions = [
-        { value: "FED", label: "United States (Federal)" },
-        { value: "CA", label: "California (State)" },
+        { value: "NZ", label: "New Zealand (National)" },
         { value: "AU", label: "Australia (Federal)" },
         { value: "AU-NSW", label: "Australia - New South Wales" },
         { value: "AU-VIC", label: "Australia - Victoria" },
         { value: "AU-QLD", label: "Australia - Queensland" },
-        { value: "NZ", label: "New Zealand (National)" },
+        { value: "AU-WA", label: "Australia - Western Australia" },
     ];
 
     const categories = [

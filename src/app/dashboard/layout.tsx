@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { IntelligencePanel } from "@/components/layout/intelligence-panel";
+import { SessionConfigProvider } from "@/lib/session-config";
 
 export default function DashboardLayout({
     children,
@@ -7,6 +8,7 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     return (
+        <SessionConfigProvider>
         <div className="flex h-screen w-full overflow-hidden bg-background">
             {/* 
         3-Panel Grid:
@@ -34,5 +36,6 @@ export default function DashboardLayout({
                 <IntelligencePanel />
             </aside>
         </div>
+        </SessionConfigProvider>
     )
 }

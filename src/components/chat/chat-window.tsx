@@ -12,8 +12,19 @@ import { AlertCircle, BrainCircuit } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useSessionConfig } from "@/lib/session-config";
 
 export function ChatWindow() {
+    const {
+        modelTier,
+        outputTone,
+        showThinking,
+        stepByStep,
+        citeAuthorities,
+        reasoningEffort,
+        setReasoningEffort,
+    } = useSessionConfig();
+
     // Session State
     const [messages, setMessages] = useState<MessageProps[]>([
         { role: "assistant", content: "Hello. I am Juristiq, your AI Legal Assistant. How can I help you today?" }
@@ -27,7 +38,6 @@ export function ChatWindow() {
     const [jurisdiction, setJurisdiction] = useState<string>("");
     const [category, setCategory] = useState<string>("");
     const [deepAnalysis, setDeepAnalysis] = useState<boolean>(false);
-    const [reasoningEffort, setReasoningEffort] = useState<"auto" | "low" | "medium" | "high">("auto");
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +77,21 @@ export function ChatWindow() {
 
         try {
             // Pass strict context params
-            const res = await sendMessage(text, chatId, jurisdiction, category, deepAnalysis, reasoningEffort === "auto" ? undefined : reasoningEffort);
+            const res = await sendMessage(
+                text,
+                chatId,
+                jurisdiction,
+                category,
+                deepAnalysis,
+                reasoningEffort === "auto" ? undefined : reasoningEffort,
+                {
+                    modelTier,
+                    outputTone,
+                    showThinking,
+                    stepByStep,
+                    citeAuthorities,
+                }
+            );
             if (!res.error && res.answer) {
                 setMessages((prev) => [
                     ...prev,
@@ -184,6 +208,10 @@ export function ChatWindow() {
                     </div>
                     {chatId && <span className="text-xs opacity-70">ID: {chatId}</span>}
                 </div>
+            </div>
+
+            <div className="px-3 py-2 text-[11px] bg-amber-50 border-b border-amber-200 text-amber-900">
+                Juristiq provides AI-assisted legal research support. Verify citations and professional obligations before relying on outputs.
             </div>
 
             {/* File Upload Area (Only visible after intake) */}
