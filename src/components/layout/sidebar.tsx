@@ -2,18 +2,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-    ChevronDown,
     Folder,
     FileText,
     Plus,
     Settings,
     MessageSquare,
-    Search,
-    Hash
 } from "lucide-react";
-import Link from "next/link";
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
+type SidebarProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function Sidebar({ className }: SidebarProps) {
     return (

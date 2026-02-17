@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { useSessionConfig } from "@/lib/session-config";
+import { ModelTier, useSessionConfig } from "@/lib/session-config";
 import {
     Cpu,
     Zap,
@@ -38,7 +38,7 @@ export function IntelligencePanel() {
             {/* Model Selection */}
             <div className="space-y-3">
                 <Label className="text-xs font-medium text-slate-500 uppercase">Model Tier</Label>
-                <RadioGroup value={modelTier} onValueChange={(v) => setModelTier(v as any)} className="gap-2">
+                <RadioGroup value={modelTier} onValueChange={(v) => setModelTier(v as ModelTier)} className="gap-2">
                     <div className="flex items-center justify-between space-x-2 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition-colors cursor-pointer">
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="standard" id="m-std" />
@@ -79,7 +79,7 @@ export function IntelligencePanel() {
 
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                        <Label className="text-sm font-medium">Show "Thinking"</Label>
+                        <Label className="text-sm font-medium">Show &quot;Thinking&quot;</Label>
                         <p className="text-xs text-slate-500">Reveal internal monologue</p>
                     </div>
                     <Switch checked={showThinking} onCheckedChange={setShowThinking} />

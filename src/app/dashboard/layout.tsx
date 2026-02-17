@@ -14,11 +14,11 @@ export default function DashboardLayout({
     const [ready, setReady] = useState(!isAuthRequired());
 
     useEffect(() => {
-        let active = true;
         if (!isAuthRequired()) {
-            setReady(true);
             return;
         }
+
+        let active = true;
         hasClientAuthIdentity().then((ok) => {
             if (!active) return;
             if (ok) setReady(true);
