@@ -12,7 +12,12 @@ import { AlertCircle, BrainCircuit } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useSessionConfig } from "@/lib/session-config";
+import { ReasoningEffort, useSessionConfig } from "@/lib/session-config";
+
+const getErrorMessage = (err: unknown): string => {
+    if (err instanceof Error) return err.message;
+    return "Failed to get response.";
+};
 
 export function ChatWindow() {
     const {
@@ -108,8 +113,8 @@ export function ChatWindow() {
             } else {
                 throw new Error(res.error || "Unknown error");
             }
-        } catch (err: any) {
-            setError(err.message || "Failed to get response.");
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
             // We don't remove the user message, allowing retry or context.
         } finally {
             setIsLoading(false);
@@ -186,7 +191,7 @@ export function ChatWindow() {
                         <select
                             id="effort-select"
                             value={reasoningEffort}
-                            onChange={(e) => setReasoningEffort(e.target.value as any)}
+                            onChange={(e) => setReasoningEffort(e.target.value as ReasoningEffort)}
                             className="bg-black/10 text-primary-foreground text-[10px] font-semibold px-2 py-0.5 rounded border border-white/10 cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent"
                         >
                             <option value="auto">Auto</option>
@@ -229,8 +234,8 @@ export function ChatWindow() {
                                 content: `*File uploaded: ${file.name}*\nI have analyzed this document. What would you like to know?`,
                                 model: "system"
                             }]);
-                        } catch (e: any) {
-                            setError(e.message);
+                        } catch (e: unknown) {
+                            setError(getErrorMessage(e));
                         } finally {
                             setIsLoading(false);
                         }

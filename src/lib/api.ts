@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://juristiq-api.ashylsp
 export interface ChatResponse {
     answer: string;
     chat_id?: number;
-    used?: any[];
+    used?: unknown[];
     conversation_length?: number;
     model?: string;
     ai_metadata?: {
@@ -84,7 +84,7 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
 
     // 413 = Payload Too Large, 429 = Too Many Requests
     if (res.status === 413 || res.status === 429) {
-        const err = await res.json() as any;
+        const err = await res.json() as { error?: string };
         throw new Error(err.error || "File upload limits exceeded");
     }
 
