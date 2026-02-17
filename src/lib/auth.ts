@@ -65,6 +65,16 @@ function resolveTenantId(): string {
   return window.localStorage.getItem(TENANT_ID_KEY) || process.env.NEXT_PUBLIC_DEV_TENANT_ID || "public";
 }
 
+export function isAuthRequired(): boolean {
+  return process.env.NEXT_PUBLIC_REQUIRE_AUTH === "true";
+}
+
+export async function hasClientAuthIdentity(): Promise<boolean> {
+  const token = await resolveToken();
+  const userId = resolveUserId();
+  return Boolean(token || userId);
+}
+
 export async function buildAuthHeaders(): Promise<HeadersInit> {
   const headers: HeadersInit = {};
   const token = await resolveToken();

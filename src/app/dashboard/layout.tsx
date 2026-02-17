@@ -1,12 +1,38 @@
+"use client";
+
 import { Sidebar } from "@/components/layout/sidebar";
 import { IntelligencePanel } from "@/components/layout/intelligence-panel";
 import { SessionConfigProvider } from "@/lib/session-config";
+import { hasClientAuthIdentity, isAuthRequired } from "@/lib/auth";
+import { useEffect, useState } from "react";
 
 export default function DashboardLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    const [ready, setReady] = useState(!isAuthRequired());
+
+    useEffect(() => {
+        let active = true;
+        if (!isAuthRequired()) {
+            setReady(true);
+            return;
+        }
+        hasClientAuthIdentity().then((ok) => {
+            if (!active) return;
+            if (ok) setReady(true);
+            else window.location.href = "/";
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    if (!ready) {
+        return <div className="flex h-screen items-center justify-center text-sm text-slate-500">Checking authentication...</div>;
+    }
+
     return (
         <SessionConfigProvider>
         <div className="flex h-screen w-full overflow-hidden bg-background">
