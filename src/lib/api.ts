@@ -1,5 +1,20 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://juristiq-api.ashylspgosai.workers.dev";
 
+function buildAuthHeaders(): HeadersInit {
+    const headers: HeadersInit = {};
+
+    // Clerk-ready placeholder wiring (no paid dependency required yet)
+    const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID;
+    if (devUserId) headers["x-user-id"] = devUserId;
+
+    if (typeof window !== "undefined") {
+        const token = window.localStorage.getItem("juristiq_auth_token");
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return headers;
+}
+
 export interface ChatResponse {
     answer: string;
     chat_id?: number;
@@ -36,7 +51,7 @@ export async function sendMessage(
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                // "Authorization": "Bearer sk-proj-placeholder", // If needed by backend
+                ...buildAuthHeaders(),
             },
             body: JSON.stringify({
                 message,
@@ -73,6 +88,7 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
         method: "POST",
         headers: {
             "x-plan": plan, // Enforce plan limits
+            ...buildAuthHeaders(),
         },
         body: formData,
     });
@@ -93,7 +109,7 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
 export async function generateDocument(title: string, content: string, format: "docx" | "pdf" = "docx"): Promise<{ ok: boolean, filename: string, key: string, downloadUrl: string, error?: string }> {
     const res = await fetch(`${API_URL}/v1/document/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...buildAuthHeaders() },
         body: JSON.stringify({ title, content, format })
     });
 
