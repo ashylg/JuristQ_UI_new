@@ -18,6 +18,7 @@ declare global {
 
 const TOKEN_KEY = "juristiq_auth_token";
 const USER_ID_KEY = "juristiq_user_id";
+const TENANT_ID_KEY = "juristiq_tenant_id";
 
 export function setDevAuthToken(token: string | null) {
   if (typeof window === "undefined") return;
@@ -29,6 +30,12 @@ export function setDevUserId(userId: string | null) {
   if (typeof window === "undefined") return;
   if (!userId) window.localStorage.removeItem(USER_ID_KEY);
   else window.localStorage.setItem(USER_ID_KEY, userId);
+}
+
+export function setDevTenantId(tenantId: string | null) {
+  if (typeof window === "undefined") return;
+  if (!tenantId) window.localStorage.removeItem(TENANT_ID_KEY);
+  else window.localStorage.setItem(TENANT_ID_KEY, tenantId);
 }
 
 async function resolveToken(): Promise<string | undefined> {
@@ -53,13 +60,20 @@ function resolveUserId(): string | undefined {
   );
 }
 
+function resolveTenantId(): string {
+  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_DEV_TENANT_ID || "public";
+  return window.localStorage.getItem(TENANT_ID_KEY) || process.env.NEXT_PUBLIC_DEV_TENANT_ID || "public";
+}
+
 export async function buildAuthHeaders(): Promise<HeadersInit> {
   const headers: HeadersInit = {};
   const token = await resolveToken();
   const userId = resolveUserId();
+  const tenantId = resolveTenantId();
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (userId) headers["x-clerk-user-id"] = userId;
+  if (tenantId) headers["x-tenant-id"] = tenantId;
 
   return headers;
 }
