@@ -1,19 +1,6 @@
+import { buildAuthHeaders } from "@/lib/auth";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://juristiq-api.ashylspgosai.workers.dev";
-
-function buildAuthHeaders(): HeadersInit {
-    const headers: HeadersInit = {};
-
-    // Clerk-ready placeholder wiring (no paid dependency required yet)
-    const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID;
-    if (devUserId) headers["x-user-id"] = devUserId;
-
-    if (typeof window !== "undefined") {
-        const token = window.localStorage.getItem("juristiq_auth_token");
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    return headers;
-}
 
 export interface ChatResponse {
     answer: string;
@@ -47,11 +34,12 @@ export async function sendMessage(
     }
 ): Promise<ChatResponse> {
     try {
+        const authHeaders = await buildAuthHeaders();
         const res = await fetch(`${API_URL}/v1/chat`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                ...buildAuthHeaders(),
+                ...authHeaders,
             },
             body: JSON.stringify({
                 message,
@@ -84,11 +72,12 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
     const formData = new FormData();
     formData.append("file", file);
 
+    const authHeaders = await buildAuthHeaders();
     const res = await fetch(`${API_URL}/v1/upload`, {
         method: "POST",
         headers: {
             "x-plan": plan, // Enforce plan limits
-            ...buildAuthHeaders(),
+            ...authHeaders,
         },
         body: formData,
     });
@@ -107,9 +96,10 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
 }
 
 export async function generateDocument(title: string, content: string, format: "docx" | "pdf" = "docx"): Promise<{ ok: boolean, filename: string, key: string, downloadUrl: string, error?: string }> {
+    const authHeaders = await buildAuthHeaders();
     const res = await fetch(`${API_URL}/v1/document/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...buildAuthHeaders() },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ title, content, format })
     });
 
