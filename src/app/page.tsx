@@ -19,9 +19,12 @@ export default function LandingPage() {
             <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">Features</Link>
             <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">Pricing</Link>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button>Go to Workspace <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          <div className="flex items-center gap-3">
+            <Link href="/sign-in" className="text-sm font-medium hover:text-primary transition-colors">
+              Sign in
+            </Link>
+            <Link href="/sign-up">
+              <Button>Create account <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </Link>
           </div>
         </div>
@@ -39,10 +42,12 @@ export default function LandingPage() {
               A workspace for legal professionals that combines deep reasoning AI, secure document drafting, and multi-jurisdictional intelligence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link href="/dashboard">
+              <Link href="/sign-up">
                 <Button size="lg" className="px-8 text-lg h-12">Start Consultation</Button>
               </Link>
-              <Button size="lg" variant="outline" className="px-8 text-lg h-12 bg-white/50">View Demo</Button>
+              <Link href="/sign-in">
+                <Button size="lg" variant="outline" className="px-8 text-lg h-12 bg-white/50">Sign In</Button>
+              </Link>
             </div>
             <div className="pt-8 flex items-center gap-8 text-sm text-slate-500 font-medium">
               <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Bank-grade Security</div>

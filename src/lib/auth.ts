@@ -1,89 +1,70 @@
-export type AuthContext = {
-  token?: string;
-  userId?: string;
+export type AuthUser = {
+  id: string;
+  email?: string;
+  name?: string;
+  tenant_id?: string;
 };
 
-declare global {
-  interface Window {
-    Clerk?: {
-      session?: {
-        getToken?: (opts?: { template?: string }) => Promise<string | null>;
-      };
-      user?: {
-        id?: string;
-      };
-    };
-  }
+export type AuthResult = {
+  ok: boolean;
+  user?: AuthUser;
+  error?: string;
+};
+
+async function parseJson<T>(response: Response): Promise<T> {
+  return (await response.json().catch(() => ({}))) as T;
 }
 
-const TOKEN_KEY = "juristiq_auth_token";
-const USER_ID_KEY = "juristiq_user_id";
-const TENANT_ID_KEY = "juristiq_tenant_id";
+export async function signUp(input: {
+  email: string;
+  password: string;
+  name?: string;
+  tenantId?: string;
+}): Promise<AuthResult> {
+  const response = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      name: input.name,
+      tenant_id: input.tenantId,
+    }),
+  });
 
-export function setDevAuthToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (!token) window.localStorage.removeItem(TOKEN_KEY);
-  else window.localStorage.setItem(TOKEN_KEY, token);
+  const data = await parseJson<{ user?: AuthUser; error?: string }>(response);
+  if (!response.ok) return { ok: false, error: data.error || "Sign up failed" };
+  return { ok: true, user: data.user };
 }
 
-export function setDevUserId(userId: string | null) {
-  if (typeof window === "undefined") return;
-  if (!userId) window.localStorage.removeItem(USER_ID_KEY);
-  else window.localStorage.setItem(USER_ID_KEY, userId);
+export async function signIn(input: {
+  email: string;
+  password: string;
+  tenantId?: string;
+}): Promise<AuthResult> {
+  const response = await fetch("/api/auth/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      tenant_id: input.tenantId,
+    }),
+  });
+
+  const data = await parseJson<{ user?: AuthUser; error?: string }>(response);
+  if (!response.ok) return { ok: false, error: data.error || "Sign in failed" };
+  return { ok: true, user: data.user };
 }
 
-export function setDevTenantId(tenantId: string | null) {
-  if (typeof window === "undefined") return;
-  if (!tenantId) window.localStorage.removeItem(TENANT_ID_KEY);
-  else window.localStorage.setItem(TENANT_ID_KEY, tenantId);
+export async function signOut(): Promise<boolean> {
+  const response = await fetch("/api/auth/signout", { method: "POST" });
+  return response.ok;
 }
 
-async function resolveToken(): Promise<string | undefined> {
-  if (typeof window === "undefined") return undefined;
-
-  const clerkToken = await window.Clerk?.session?.getToken?.({ template: "juristiq" }).catch(() => null);
-  if (clerkToken) return clerkToken;
-
-  return window.localStorage.getItem(TOKEN_KEY) || undefined;
-}
-
-function resolveUserId(): string | undefined {
-  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_DEV_USER_ID || undefined;
-
-  const clerkUser = window.Clerk?.user?.id;
-  if (clerkUser) return clerkUser;
-
-  return (
-    window.localStorage.getItem(USER_ID_KEY) ||
-    process.env.NEXT_PUBLIC_DEV_USER_ID ||
-    undefined
-  );
-}
-
-function resolveTenantId(): string {
-  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_DEV_TENANT_ID || "public";
-  return window.localStorage.getItem(TENANT_ID_KEY) || process.env.NEXT_PUBLIC_DEV_TENANT_ID || "public";
-}
-
-export function isAuthRequired(): boolean {
-  return process.env.NEXT_PUBLIC_REQUIRE_AUTH === "true";
-}
-
-export async function hasClientAuthIdentity(): Promise<boolean> {
-  const token = await resolveToken();
-  const userId = resolveUserId();
-  return Boolean(token || userId);
-}
-
-export async function buildAuthHeaders(): Promise<HeadersInit> {
-  const headers: HeadersInit = {};
-  const token = await resolveToken();
-  const userId = resolveUserId();
-  const tenantId = resolveTenantId();
-
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  if (userId) headers["x-clerk-user-id"] = userId;
-  if (tenantId) headers["x-tenant-id"] = tenantId;
-
-  return headers;
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const response = await fetch("/api/auth/me", { method: "GET", cache: "no-store" });
+  if (!response.ok) return null;
+  const data = await parseJson<{ user?: AuthUser }>(response);
+  return data.user || null;
 }

@@ -8,6 +8,7 @@ import {
     Settings,
     MessageSquare,
 } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
 type SidebarProps = React.HTMLAttributes<HTMLDivElement>;
 
@@ -92,6 +93,7 @@ export function Sidebar({ className }: SidebarProps) {
                         <Settings className="h-4 w-4" />
                         Settings
                     </Button>
+                    <SignOutButton />
                 </div>
             </div>
         </div>

@@ -1,6 +1,4 @@
-import { buildAuthHeaders } from "@/lib/auth";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://juristiq-api.ashylspgosai.workers.dev";
+const API_BASE = "/api/backend";
 
 export interface ChatResponse {
     answer: string;
@@ -34,12 +32,10 @@ export async function sendMessage(
     }
 ): Promise<ChatResponse> {
     try {
-        const authHeaders = await buildAuthHeaders();
-        const res = await fetch(`${API_URL}/v1/chat`, {
+        const res = await fetch(`${API_BASE}/v1/chat`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                ...authHeaders,
             },
             body: JSON.stringify({
                 message,
@@ -72,17 +68,14 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
     const formData = new FormData();
     formData.append("file", file);
 
-    const authHeaders = await buildAuthHeaders();
-    const res = await fetch(`${API_URL}/v1/upload`, {
+    const res = await fetch(`${API_BASE}/v1/upload`, {
         method: "POST",
         headers: {
-            "x-plan": plan, // Enforce plan limits
-            ...authHeaders,
+            "x-plan": plan,
         },
         body: formData,
     });
 
-    // 413 = Payload Too Large, 429 = Too Many Requests
     if (res.status === 413 || res.status === 429) {
         const err = await res.json() as { error?: string };
         throw new Error(err.error || "File upload limits exceeded");
@@ -96,10 +89,9 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
 }
 
 export async function generateDocument(title: string, content: string, format: "docx" | "pdf" = "docx"): Promise<{ ok: boolean, filename: string, key: string, downloadUrl: string, error?: string }> {
-    const authHeaders = await buildAuthHeaders();
-    const res = await fetch(`${API_URL}/v1/document/generate`, {
+    const res = await fetch(`${API_BASE}/v1/document/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content, format })
     });
 
