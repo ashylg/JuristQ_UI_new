@@ -33,7 +33,7 @@ export default async function DashboardLayout({
                 </main>
 
                 <aside className="w-[300px] border-l border-border bg-slate-50/50 hidden lg:flex flex-col transition-all duration-300">
-                    <div className="p-4 border-b border-border font-medium text-sm h-14 flex items-center">Control Center</div>
+                    <div className="p-4 border-b border-border font-medium text-sm h-14 flex items-center">Management</div>
                     <IntelligencePanel />
                 </aside>
             </div>

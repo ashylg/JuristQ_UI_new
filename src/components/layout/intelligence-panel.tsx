@@ -1,132 +1,122 @@
 "use client";
 
+import { FormEvent, useEffect, useState } from "react";
+import { BriefcaseBusiness, FileText, Loader2, RefreshCw } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { ModelTier, useSessionConfig } from "@/lib/session-config";
-import {
-    Cpu,
-    Zap,
-    BrainCircuit,
-    BookOpen,
-    Gavel
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { createMatter, listDocuments, WorkspaceDocument } from "@/lib/workspace-api";
 
 export function IntelligencePanel() {
-    const {
-        modelTier,
-        setModelTier,
-        showThinking,
-        setShowThinking,
-        stepByStep,
-        setStepByStep,
-        citeAuthorities,
-        setCiteAuthorities,
-        outputTone,
-        setOutputTone,
-    } = useSessionConfig();
+  const [matterTitle, setMatterTitle] = useState("");
+  const [matterDescription, setMatterDescription] = useState("");
+  const [matterSaving, setMatterSaving] = useState(false);
+  const [matterMessage, setMatterMessage] = useState<string | null>(null);
 
-    return (
-        <div className="h-full flex flex-col p-4 space-y-6">
-            <div className="space-y-1">
-                <h3 className="font-semibold text-sm text-slate-900">Intelligence</h3>
-                <p className="text-xs text-slate-500">Configure AI reasoning models.</p>
-            </div>
+  const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
 
-            {/* Model Selection */}
-            <div className="space-y-3">
-                <Label className="text-xs font-medium text-slate-500 uppercase">Model Tier</Label>
-                <RadioGroup value={modelTier} onValueChange={(v) => setModelTier(v as ModelTier)} className="gap-2">
-                    <div className="flex items-center justify-between space-x-2 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition-colors cursor-pointer">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="standard" id="m-std" />
-                            <Label htmlFor="m-std" className="cursor-pointer font-medium flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-green-500" /> Standard
-                            </Label>
-                        </div>
-                        <span className="text-xs text-slate-400">Fast</span>
-                    </div>
+  const refreshDocuments = async () => {
+    setDocumentsLoading(true);
+    try {
+      const docs = await listDocuments();
+      setDocuments(docs.slice(0, 8));
+    } catch {
+      setDocuments([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
 
-                    <div className="flex items-center justify-between space-x-2 border-2 border-primary/20 bg-primary/5 rounded-lg p-3 cursor-pointer">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="advanced" id="m-adv" />
-                            <Label htmlFor="m-adv" className="cursor-pointer font-medium flex items-center gap-2">
-                                <Cpu className="w-4 h-4 text-primary" /> Advanced
-                            </Label>
-                        </div>
-                        <span className="text-xs text-primary font-medium">Balanced</span>
-                    </div>
+  useEffect(() => {
+    void refreshDocuments();
+  }, []);
 
-                    <div className="flex items-center justify-between space-x-2 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition-colors cursor-pointer">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="expert" id="m-exp" />
-                            <Label htmlFor="m-exp" className="cursor-pointer font-medium flex items-center gap-2">
-                                <BrainCircuit className="w-4 h-4 text-purple-600" /> Expert
-                            </Label>
-                        </div>
-                        <span className="text-xs text-purple-600 font-medium">Deep</span>
-                    </div>
-                </RadioGroup>
-            </div>
+  const onCreateMatter = async (event: FormEvent) => {
+    event.preventDefault();
+    const title = matterTitle.trim();
+    if (!title) return;
 
-            <Separator />
+    setMatterSaving(true);
+    setMatterMessage(null);
+    try {
+      await createMatter({ title, description: matterDescription.trim() });
+      setMatterTitle("");
+      setMatterDescription("");
+      setMatterMessage("Matter created.");
+      window.dispatchEvent(new Event("juristiq:matters-changed"));
+    } catch (error) {
+      setMatterMessage(error instanceof Error ? error.message : "Failed to create matter");
+    } finally {
+      setMatterSaving(false);
+    }
+  };
 
-            {/* Reasoning Controls */}
-            <div className="space-y-4">
-                <Label className="text-xs font-medium text-slate-500 uppercase">Reasoning Depth</Label>
+  return (
+    <div className="h-full flex flex-col p-4 space-y-6">
+      <div className="space-y-1">
+        <h3 className="font-semibold text-sm text-slate-900">Management Controls</h3>
+        <p className="text-xs text-slate-500">Real workspace controls connected to your account data.</p>
+      </div>
 
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label className="text-sm font-medium">Show &quot;Thinking&quot;</Label>
-                        <p className="text-xs text-slate-500">Reveal internal monologue</p>
-                    </div>
-                    <Switch checked={showThinking} onCheckedChange={setShowThinking} />
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label className="text-sm font-medium">Step-by-Step</Label>
-                        <p className="text-xs text-slate-500">Break down analysis</p>
-                    </div>
-                    <Switch checked={stepByStep} onCheckedChange={setStepByStep} />
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label className="text-sm font-medium">Cite Authorities</Label>
-                        <p className="text-xs text-slate-500">Force Case/Statute citations</p>
-                    </div>
-                    <Switch checked={citeAuthorities} onCheckedChange={setCiteAuthorities} />
-                </div>
-            </div>
-
-            <Separator />
-
-            {/* Output Style */}
-            <div className="space-y-3">
-                <Label className="text-xs font-medium text-slate-500 uppercase">Output Tone</Label>
-                <div className="grid grid-cols-2 gap-2">
-                    <Button
-                        variant={outputTone === "plain" ? "default" : "outline"}
-                        size="sm"
-                        className="h-9 justify-start gap-2"
-                        onClick={() => setOutputTone("plain")}
-                    >
-                        <BookOpen className="w-3.5 h-3.5" /> Plain
-                    </Button>
-                    <Button
-                        variant={outputTone === "academic" ? "default" : "outline"}
-                        size="sm"
-                        className="h-9 justify-start gap-2"
-                        onClick={() => setOutputTone("academic")}
-                    >
-                        <Gavel className="w-3.5 h-3.5" /> Academic
-                    </Button>
-                </div>
-            </div>
-
+      <form onSubmit={onCreateMatter} className="space-y-3">
+        <Label className="text-xs font-medium text-slate-500 uppercase">Create Matter</Label>
+        <div className="space-y-2 rounded-lg border border-slate-200 p-3 bg-white">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <BriefcaseBusiness className="h-4 w-4" />
+            New matter
+          </div>
+          <Input
+            value={matterTitle}
+            onChange={(event) => setMatterTitle(event.target.value)}
+            placeholder="e.g. Tenant bond dispute"
+            maxLength={140}
+          />
+          <Textarea
+            value={matterDescription}
+            onChange={(event) => setMatterDescription(event.target.value)}
+            placeholder="Optional description"
+            rows={3}
+            maxLength={1200}
+          />
+          <Button type="submit" size="sm" className="w-full" disabled={matterSaving || !matterTitle.trim()}>
+            {matterSaving ? "Creating..." : "Create Matter"}
+          </Button>
+          {matterMessage ? <p className="text-xs text-slate-600">{matterMessage}</p> : null}
         </div>
-    )
+      </form>
+
+      <Separator />
+
+      <div className="space-y-3 min-h-0 flex-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium text-slate-500 uppercase">Generated Documents</Label>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => void refreshDocuments()}>
+            {documentsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        <div className="space-y-2 overflow-auto pr-1">
+          {documents.map((doc) => (
+            <div key={doc.id} className="rounded-md border border-slate-200 bg-white p-2">
+              <div className="flex items-center gap-2 text-sm text-slate-800">
+                <FileText className="h-4 w-4 text-slate-500" />
+                <span className="truncate">{doc.title}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500 uppercase tracking-wide">
+                {doc.format || "doc"} • {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : "recent"}
+              </p>
+            </div>
+          ))}
+
+          {!documentsLoading && documents.length === 0 ? (
+            <p className="text-xs text-slate-500">No generated documents yet.</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
