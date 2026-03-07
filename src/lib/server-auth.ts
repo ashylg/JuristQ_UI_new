@@ -2,7 +2,24 @@ import { cookies } from "next/headers";
 
 export const SESSION_COOKIE = "juristiq_session";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://juristiq-api.ashylspgosai.workers.dev";
+const CLOUD_API_URL = "https://juristiq-api.ashylspgosai.workers.dev";
+
+function normalizeApiUrl(raw?: string): string {
+  if (!raw) return CLOUD_API_URL;
+
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return CLOUD_API_URL;
+    }
+    return parsed.origin;
+  } catch {
+    return CLOUD_API_URL;
+  }
+}
+
+export const API_URL = normalizeApiUrl(process.env.JURISTIQ_API_URL || process.env.NEXT_PUBLIC_API_URL);
 
 export function sessionCookieOptions() {
   return {

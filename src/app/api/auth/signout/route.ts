@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { backendAuthFetch, SESSION_COOKIE } from "@/lib/server-auth";
+import { backendAuthFetch, SESSION_COOKIE, sessionCookieOptions } from "@/lib/server-auth";
 
 export async function POST() {
   const store = await cookies();
@@ -14,7 +14,11 @@ export async function POST() {
     }, token).catch(() => null);
   }
 
-  store.delete(SESSION_COOKIE);
+  store.set(SESSION_COOKIE, "", {
+    ...sessionCookieOptions(),
+    maxAge: 0,
+    expires: new Date(0),
+  });
 
   return NextResponse.json({ ok: true });
 }
