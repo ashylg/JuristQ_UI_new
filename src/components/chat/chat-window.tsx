@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, BrainCircuit } from "lucide-react";
+import { AlertCircle, BrainCircuit, Download, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,31 +17,55 @@ import { generateDocument, sendMessage, uploadFile } from "@/lib/api";
 import { ReasoningEffort, useSessionConfig } from "@/lib/session-config";
 import { getThreadHistory } from "@/lib/workspace-api";
 
+type ChatMessageItem = MessageProps & { id: string };
+
 const getErrorMessage = (err: unknown): string => {
   if (err instanceof Error) return err.message;
-  return "Failed to get response.";
+  return "Failed to complete request.";
 };
 
-const INITIAL_ASSISTANT_MESSAGE: MessageProps = {
+const INITIAL_ASSISTANT_MESSAGE: ChatMessageItem = {
+  id: "initial",
   role: "assistant",
   content: "Welcome to Juristiq. Ask your legal question and I will respond using your selected controls.",
 };
 
+function makeMessageId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function safeFilename(base: string, ext: "docx" | "pdf"): string {
+  const clean = base.replace(/[^a-z0-9-_ ]/gi, "").trim().replace(/\s+/g, "_") || "juristiq_document";
+  return `${clean}.${ext}`;
+}
+
+function downloadTextFile(filename: string, content: string, format: "docx" | "pdf") {
+  const mime =
+    format === "pdf"
+      ? "application/pdf"
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const blob = new Blob([content], { type: mime });
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(href);
+}
+
 export function ChatWindow() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {
-    modelTier,
-    outputTone,
-    showThinking,
-    stepByStep,
-    citeAuthorities,
-    reasoningEffort,
-    setReasoningEffort,
-  } = useSessionConfig();
+  const { modelTier, outputTone, showThinking, stepByStep, citeAuthorities, reasoningEffort, setReasoningEffort } =
+    useSessionConfig();
 
-  const [messages, setMessages] = useState<MessageProps[]>([INITIAL_ASSISTANT_MESSAGE]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessageItem[]>([INITIAL_ASSISTANT_MESSAGE]);
+  const [isSending, setIsSending] = useState(false);
+  const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<"docx" | "pdf" | null>(null);
   const [chatId, setChatId] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,9 +82,14 @@ export function ChatWindow() {
     return Number.isFinite(parsed) ? parsed : undefined;
   }, [searchParams]);
 
+  const latestAssistantAnswer = useMemo(
+    () => [...messages].reverse().find((message) => message.role === "assistant" && message.id !== "initial"),
+    [messages]
+  );
+
   const scrollToBottom = () => {
     if (!scrollRef.current) return;
-    const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    const scrollContainer = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
     if (scrollContainer) {
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
@@ -67,7 +97,7 @@ export function ChatWindow() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isThreadLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +110,7 @@ export function ChatWindow() {
         return;
       }
 
-      setIsLoading(true);
+      setIsThreadLoading(true);
       setError(null);
       try {
         const history = await getThreadHistory(activeThreadId);
@@ -89,9 +119,14 @@ export function ChatWindow() {
         setChatId(activeThreadId);
         setMessages(
           history.length
-            ? history.map((item) => ({ role: item.role, content: item.content }))
+            ? history.map((item, index) => ({
+                id: `history_${activeThreadId}_${index}`,
+                role: item.role,
+                content: item.content,
+              }))
             : [
                 {
+                  id: `thread_empty_${activeThreadId}`,
                   role: "assistant",
                   content: "This thread is ready. Ask a legal question to begin.",
                 },
@@ -104,7 +139,7 @@ export function ChatWindow() {
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false);
+          setIsThreadLoading(false);
         }
       }
     };
@@ -121,9 +156,9 @@ export function ChatWindow() {
   };
 
   const handleSend = async (text: string) => {
-    const userMsg: MessageProps = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsLoading(true);
+    const userMessage: ChatMessageItem = { id: makeMessageId("user"), role: "user", content: text };
+    setMessages((prev) => [...prev, userMessage]);
+    setIsSending(true);
     setError(null);
 
     try {
@@ -147,6 +182,7 @@ export function ChatWindow() {
         setMessages((prev) => [
           ...prev,
           {
+            id: makeMessageId("assistant"),
             role: "assistant",
             content: res.answer,
             model: res.model,
@@ -162,12 +198,60 @@ export function ChatWindow() {
           notifyThreadsChanged();
         }
       } else {
-        throw new Error(res.error || "Unknown error");
+        throw new Error(res.error || "Empty assistant response");
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err));
+      const message = getErrorMessage(err);
+      setError(message);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId("assistant_error"),
+          role: "assistant",
+          content: `I couldn't complete that request. ${message}`,
+        },
+      ]);
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
+    }
+  };
+
+  const handleUpload = async (file: File) => {
+    setError(null);
+    setIsUploading(true);
+    try {
+      const upload = await uploadFile(file, "ultra");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId("upload"),
+          role: "assistant",
+          content: `File uploaded successfully: **${upload.filename}** (${(upload.bytes / 1024).toFixed(1)} KB).\n\nI can now use this file as reference context in this thread.`,
+          model: "system",
+        },
+      ]);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownload = async (format: "docx" | "pdf") => {
+    if (!latestAssistantAnswer) return;
+
+    setError(null);
+    setIsDownloading(format);
+
+    const defaultFilename = safeFilename("Legal Document", format);
+
+    try {
+      const generated = await generateDocument("Legal Document", latestAssistantAnswer.content, format);
+      downloadTextFile(generated.filename || defaultFilename, latestAssistantAnswer.content, format);
+      notifyThreadsChanged();
+    } catch (err) {
+      downloadTextFile(defaultFilename, latestAssistantAnswer.content, format);
+      setError(`Generated a local ${format.toUpperCase()} download fallback: ${getErrorMessage(err)}`);
+    } finally {
+      setIsDownloading(null);
     }
   };
 
@@ -184,51 +268,37 @@ export function ChatWindow() {
               Deep Mode
             </Badge>
           ) : null}
+          {activeThreadId ? (
+            <Badge variant="outline" className="text-[10px] bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
+              Thread {activeThreadId}
+            </Badge>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-secondary/30 rounded-md p-0.5 border border-border/50">
-              <button
-                onClick={async () => {
-                  const lastAssistantMsg = messages.filter((m) => m.role === "assistant").pop();
-                  if (!lastAssistantMsg) return;
-
-                  try {
-                    const res = await generateDocument("Legal Document", lastAssistantMsg.content, "docx");
-                    if (res.ok && res.downloadUrl) {
-                      window.location.href = res.downloadUrl;
-                    }
-                  } catch {
-                    setError("Failed to generate DOCX");
-                  }
-                }}
-                className="text-[10px] font-medium px-2 py-1 rounded hover:bg-background/80 transition-colors text-muted-foreground hover:text-foreground"
-                title="Download as Word"
-              >
-                DOCX
-              </button>
-              <div className="w-[1px] h-3 bg-border/50" />
-              <button
-                onClick={async () => {
-                  const lastAssistantMsg = messages.filter((m) => m.role === "assistant").pop();
-                  if (!lastAssistantMsg) return;
-
-                  try {
-                    const res = await generateDocument("Legal Document", lastAssistantMsg.content, "pdf");
-                    if (res.ok && res.downloadUrl) {
-                      window.location.href = res.downloadUrl;
-                    }
-                  } catch {
-                    setError("Failed to generate PDF");
-                  }
-                }}
-                className="text-[10px] font-medium px-2 py-1 rounded hover:bg-background/80 transition-colors text-muted-foreground hover:text-foreground"
-                title="Download as PDF"
-              >
-                PDF
-              </button>
-            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={!latestAssistantAnswer || !!isDownloading}
+              onClick={() => void handleDownload("docx")}
+            >
+              {isDownloading === "docx" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
+              DOCX
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={!latestAssistantAnswer || !!isDownloading}
+              onClick={() => void handleDownload("pdf")}
+            >
+              {isDownloading === "pdf" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
+              PDF
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -253,12 +323,7 @@ export function ChatWindow() {
             <Label htmlFor="deep-toggle" className="text-[10px] font-bold uppercase tracking-tighter cursor-pointer">
               Deep Mode
             </Label>
-            <Switch
-              id="deep-toggle"
-              checked={deepAnalysis}
-              onCheckedChange={setDeepAnalysis}
-              className="scale-75 data-[state=checked]:bg-accent"
-            />
+            <Switch id="deep-toggle" checked={deepAnalysis} onCheckedChange={setDeepAnalysis} className="scale-75 data-[state=checked]:bg-accent" />
           </div>
           {chatId ? <span className="text-xs opacity-70">ID: {chatId}</span> : null}
         </div>
@@ -269,43 +334,23 @@ export function ChatWindow() {
       </div>
 
       <div className="bg-muted/30 border-b border-border/50 p-2">
-        <FileUpload
-          currentTier="ultra"
-          isUploading={false}
-          onFileSelect={async (file) => {
-            try {
-              setIsLoading(true);
-              await uploadFile(file, "ultra");
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: `*File uploaded: ${file.name}*\nI have analyzed this document. What would you like to know?`,
-                  model: "system",
-                },
-              ]);
-            } catch (err) {
-              setError(getErrorMessage(err));
-            } finally {
-              setIsLoading(false);
-            }
-          }}
-        />
+        <FileUpload currentTier="ultra" isUploading={isUploading} onUpload={handleUpload} />
       </div>
 
       <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
         <div className="p-4 space-y-4 pb-4">
-          {messages.map((msg, index) => (
-            <ChatMessage
-              key={index}
-              role={msg.role}
-              content={msg.content}
-              model={msg.model}
-              ai_metadata={msg.ai_metadata}
-            />
+          {messages.map((msg) => (
+            <ChatMessage key={msg.id} role={msg.role} content={msg.content} model={msg.model} ai_metadata={msg.ai_metadata} />
           ))}
 
-          {isLoading ? (
+          {isThreadLoading ? (
+            <div className="flex items-center gap-2 p-4 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading thread history...</span>
+            </div>
+          ) : null}
+
+          {isSending ? (
             <div className="flex items-center gap-2 p-4 text-muted-foreground animate-pulse">
               <div className="h-2 w-2 rounded-full bg-accent/50 animate-bounce" style={{ animationDelay: "0ms" }} />
               <div className="h-2 w-2 rounded-full bg-accent/50 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -317,13 +362,13 @@ export function ChatWindow() {
           {error ? (
             <div className="mx-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              <span>Error: {error}</span>
+              <span>{error}</span>
             </div>
           ) : null}
         </div>
       </ScrollArea>
 
-      <ChatInput onSend={handleSend} disabled={isLoading} />
+      <ChatInput onSend={handleSend} disabled={isSending || isThreadLoading} />
     </Card>
   );
 }
