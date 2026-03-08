@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
+import { emitWorkspaceEvent, WORKSPACE_THREADS_CHANGED } from "@/lib/workspace-events";
 import { ApiError, createThread, deleteThread, listThreads, renameThread, ThreadSummary } from "@/lib/workspace-api";
 
 type SidebarProps = React.HTMLAttributes<HTMLDivElement>;
@@ -86,12 +87,12 @@ export function Sidebar({ className }: SidebarProps) {
 
   useEffect(() => {
     const handler = () => void refreshThreads();
-    window.addEventListener("juristiq:threads-changed", handler);
-    return () => window.removeEventListener("juristiq:threads-changed", handler);
+    window.addEventListener(WORKSPACE_THREADS_CHANGED, handler);
+    return () => window.removeEventListener(WORKSPACE_THREADS_CHANGED, handler);
   }, [refreshThreads]);
 
   const dispatchThreadsChanged = () => {
-    window.dispatchEvent(new Event("juristiq:threads-changed"));
+    emitWorkspaceEvent(WORKSPACE_THREADS_CHANGED);
   };
 
   const handleCreateThread = async () => {
@@ -109,7 +110,7 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   const handleRenameThread = async (thread: ThreadSummary) => {
-    const currentTitle = shortThreadTitle(thread);
+    const currentTitle = (thread.title || thread.last_message || "Untitled thread").trim();
     const nextTitle = window.prompt("Rename thread", currentTitle);
     if (!nextTitle || !nextTitle.trim()) return;
 

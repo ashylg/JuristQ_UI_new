@@ -19,6 +19,7 @@ async function parseJson<T>(response: Response): Promise<T> {
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),

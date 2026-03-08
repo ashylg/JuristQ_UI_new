@@ -9,6 +9,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function sanitizeNextPath(nextPath: string | null): string {
+  if (!nextPath) return "/dashboard";
+  if (!nextPath.startsWith("/")) return "/dashboard";
+  if (nextPath.startsWith("//")) return "/dashboard";
+  return nextPath;
+}
+
+function getNextPathFromWindow(): string {
+  if (typeof window === "undefined") return "/dashboard";
+  const raw = new URLSearchParams(window.location.search).get("next");
+  return sanitizeNextPath(raw);
+}
+
 export default function SignInPage() {
   const router = useRouter();
 
@@ -19,18 +32,20 @@ export default function SignInPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
 
     const result = await signIn({ email, password });
-    setLoading(false);
 
     if (!result.ok) {
+      setLoading(false);
       setError(result.error || "Unable to sign in");
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(getNextPathFromWindow());
     router.refresh();
   }
 
@@ -60,7 +75,10 @@ export default function SignInPage() {
           </form>
 
           <p className="mt-4 text-sm text-slate-600">
-            New here? <Link className="text-primary hover:underline" href="/sign-up">Create an account</Link>
+            New here?{" "}
+            <Link className="text-primary hover:underline" href="/sign-up">
+              Create an account
+            </Link>
           </p>
         </CardContent>
       </Card>

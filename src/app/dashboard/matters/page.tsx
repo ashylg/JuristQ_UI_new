@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { emitWorkspaceEvent, WORKSPACE_MATTERS_CHANGED } from "@/lib/workspace-events";
 import { createMatter, listMatters, Matter } from "@/lib/workspace-api";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
@@ -47,8 +48,8 @@ export default function MattersPage() {
 
   useEffect(() => {
     const handler = () => void refresh();
-    window.addEventListener("juristiq:matters-changed", handler);
-    return () => window.removeEventListener("juristiq:matters-changed", handler);
+    window.addEventListener(WORKSPACE_MATTERS_CHANGED, handler);
+    return () => window.removeEventListener(WORKSPACE_MATTERS_CHANGED, handler);
   }, []);
 
   const onSubmit = async (event: FormEvent) => {
@@ -62,7 +63,7 @@ export default function MattersPage() {
       setTitle("");
       setDescription("");
       setMessage("Matter created.");
-      window.dispatchEvent(new Event("juristiq:matters-changed"));
+      emitWorkspaceEvent(WORKSPACE_MATTERS_CHANGED);
       await refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to create matter");

@@ -57,6 +57,7 @@ export async function sendMessage(
 ): Promise<ChatResponse> {
   const res = await fetch(`${API_BASE}/v1/chat`, {
     method: "POST",
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
     },
@@ -94,6 +95,7 @@ export async function uploadFile(file: File, plan: "basic" | "pro" | "ultra" | "
 
   const res = await fetch(`${API_BASE}/v1/upload`, {
     method: "POST",
+    credentials: "same-origin",
     headers: {
       "x-plan": plan,
     },
@@ -120,6 +122,7 @@ export async function generateDocument(
 ): Promise<GenerateDocumentResponse> {
   const res = await fetch(`${API_BASE}/v1/document/generate`, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, content, format }),
   });
@@ -131,12 +134,17 @@ export async function generateDocument(
 function resolveDownloadUrl(downloadUrl: string): string {
   if (!downloadUrl) return "";
 
-  if (/^https?:\/\//i.test(downloadUrl)) {
+  if (downloadUrl.startsWith("/api/backend")) {
     return downloadUrl;
   }
 
-  if (downloadUrl.startsWith("/api/backend")) {
-    return downloadUrl;
+  if (/^https?:\/\//i.test(downloadUrl)) {
+    try {
+      const parsed = new URL(downloadUrl);
+      return `${API_BASE}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return "";
+    }
   }
 
   if (downloadUrl.startsWith("/")) {
@@ -155,6 +163,7 @@ export async function fetchGeneratedDocument(downloadUrl: string): Promise<Blob>
   const response = await fetch(resolved, {
     method: "GET",
     cache: "no-store",
+    credentials: "same-origin",
   });
 
   if (!response.ok) {

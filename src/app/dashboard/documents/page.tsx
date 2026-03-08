@@ -5,6 +5,7 @@ import { AlertCircle, FileText, FolderUp, Loader2, RefreshCw } from "lucide-reac
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { WORKSPACE_DOCUMENTS_CHANGED } from "@/lib/workspace-events";
 import { listDocuments, listUploads, WorkspaceDocument, WorkspaceUpload } from "@/lib/workspace-api";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
@@ -60,6 +61,12 @@ export default function DocumentsPage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => void refresh();
+    window.addEventListener(WORKSPACE_DOCUMENTS_CHANGED, handler);
+    return () => window.removeEventListener(WORKSPACE_DOCUMENTS_CHANGED, handler);
   }, []);
 
   return (

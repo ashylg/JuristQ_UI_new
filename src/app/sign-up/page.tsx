@@ -19,13 +19,15 @@ export default function SignUpPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
 
     const result = await signUp({ name, email, password });
-    setLoading(false);
 
     if (!result.ok) {
+      setLoading(false);
       setError(result.error || "Unable to create account");
       return;
     }

@@ -6,6 +6,11 @@ import { AlertCircle, CheckSquare, CircleCheck, Loader2, RefreshCw } from "lucid
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  WORKSPACE_DOCUMENTS_CHANGED,
+  WORKSPACE_MATTERS_CHANGED,
+  WORKSPACE_THREADS_CHANGED,
+} from "@/lib/workspace-events";
+import {
   listDocuments,
   listMatters,
   listThreads,
@@ -98,6 +103,18 @@ export default function TasksPage() {
     void initialLoad();
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => void refresh();
+    window.addEventListener(WORKSPACE_THREADS_CHANGED, handler);
+    window.addEventListener(WORKSPACE_MATTERS_CHANGED, handler);
+    window.addEventListener(WORKSPACE_DOCUMENTS_CHANGED, handler);
+    return () => {
+      window.removeEventListener(WORKSPACE_THREADS_CHANGED, handler);
+      window.removeEventListener(WORKSPACE_MATTERS_CHANGED, handler);
+      window.removeEventListener(WORKSPACE_DOCUMENTS_CHANGED, handler);
     };
   }, []);
 

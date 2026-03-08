@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, X, FileText, AlertCircle, Loader2, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Upload, X, FileText, AlertCircle, Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -155,8 +155,6 @@ export function FileUpload({ onUpload, currentTier, isUploading }: FileUploadPro
           <div className="h-10 w-10 rounded bg-background flex items-center justify-center border border-border/50">
             {isUploading || uploadState === "uploading" ? (
               <Loader2 className="h-5 w-5 animate-spin text-accent" />
-            ) : uploadState === "uploaded" ? (
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             ) : (
               <FileText className="h-5 w-5 text-accent" />
             )}

@@ -15,6 +15,7 @@ import { ChatMessage, MessageProps } from "./chat-message";
 import { FileUpload } from "./file-upload";
 import { fetchGeneratedDocument, generateDocument, sendMessage, uploadFile } from "@/lib/api";
 import { ReasoningEffort, useSessionConfig } from "@/lib/session-config";
+import { emitWorkspaceEvent, WORKSPACE_DOCUMENTS_CHANGED, WORKSPACE_THREADS_CHANGED } from "@/lib/workspace-events";
 import { getThreadHistory } from "@/lib/workspace-api";
 
 type ChatMessageItem = MessageProps & { id: string };
@@ -156,7 +157,7 @@ export function ChatWindow() {
   }, [activeThreadId]);
 
   const notifyThreadsChanged = () => {
-    window.dispatchEvent(new Event("juristiq:threads-changed"));
+    emitWorkspaceEvent(WORKSPACE_THREADS_CHANGED);
   };
 
   const handleSend = async (text: string) => {
@@ -244,6 +245,7 @@ export function ChatWindow() {
         },
       ]);
       notifyThreadsChanged();
+      emitWorkspaceEvent(WORKSPACE_DOCUMENTS_CHANGED);
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -275,6 +277,7 @@ export function ChatWindow() {
       const blob = await fetchGeneratedDocument(generated.downloadUrl);
       downloadBlob(generated.filename || defaultFilename, blob);
       notifyThreadsChanged();
+      emitWorkspaceEvent(WORKSPACE_DOCUMENTS_CHANGED);
     } catch (err) {
       downloadBlob(defaultFilename, textAsBlob(latestAssistantAnswer.content, format));
       setError(`Unable to fetch generated ${format.toUpperCase()} file. Downloaded local fallback instead: ${getErrorMessage(err)}`);
