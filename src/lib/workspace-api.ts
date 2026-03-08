@@ -1,5 +1,17 @@
 const API_BASE = "/api/backend";
 
+export class ApiError extends Error {
+  status: number;
+  detail?: string;
+
+  constructor(message: string, status: number, detail?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json().catch(() => ({}))) as T;
 }
@@ -16,7 +28,11 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   const payload = await parseJson<{ error?: string; detail?: string } & T>(response);
   if (!response.ok) {
-    throw new Error(payload.error || payload.detail || `Request failed (${response.status})`);
+    throw new ApiError(
+      payload.error || payload.detail || `Request failed (${response.status})`,
+      response.status,
+      payload.detail
+    );
   }
 
   return payload;
@@ -44,7 +60,11 @@ export async function listThreads(): Promise<ThreadSummary[]> {
   return data.sessions || [];
 }
 
-export async function createThread(input?: { title?: string; jurisdictions?: string[]; documentTypes?: string[] }): Promise<ThreadSummary> {
+export async function createThread(input?: {
+  title?: string;
+  jurisdictions?: string[];
+  documentTypes?: string[];
+}): Promise<ThreadSummary> {
   const data = await requestJson<{ session: ThreadSummary }>("/v1/chat/sessions", {
     method: "POST",
     body: JSON.stringify({
