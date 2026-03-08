@@ -1,41 +1,90 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, FolderUp, RefreshCw } from "lucide-react";
+import { AlertCircle, FileText, FolderUp, Loader2, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listDocuments, listUploads, WorkspaceDocument, WorkspaceUpload } from "@/lib/workspace-api";
 
+type LoadState = "loading" | "ready" | "empty" | "error";
+
+function formatDate(value?: string) {
+  if (!value) return "recent";
+  return new Date(value).toLocaleString();
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
   const [uploads, setUploads] = useState<WorkspaceUpload[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = async () => {
-    setLoading(true);
+    setError(null);
+    setLoadState((prev) => (prev === "ready" ? "ready" : "loading"));
+
     try {
       const [docs, files] = await Promise.all([listDocuments(), listUploads()]);
       setDocuments(docs);
       setUploads(files);
-    } finally {
-      setLoading(false);
+      setLoadState(docs.length || files.length ? "ready" : "empty");
+    } catch (err) {
+      setDocuments([]);
+      setUploads([]);
+      setLoadState("error");
+      setError(err instanceof Error ? err.message : "Failed to load documents");
     }
   };
 
   useEffect(() => {
-    void refresh();
+    let active = true;
+
+    const initialLoad = async () => {
+      try {
+        const [docs, files] = await Promise.all([listDocuments(), listUploads()]);
+        if (!active) return;
+        setDocuments(docs);
+        setUploads(files);
+        setLoadState(docs.length || files.length ? "ready" : "empty");
+      } catch (err) {
+        if (!active) return;
+        setDocuments([]);
+        setUploads([]);
+        setLoadState("error");
+        setError(err instanceof Error ? err.message : "Failed to load documents");
+      }
+    };
+
+    void initialLoad();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
     <div className="p-4 lg:p-6 space-y-4 overflow-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Documents</h1>
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loadState === "loading"}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
       </div>
+
+      {loadState === "loading" ? (
+        <p className="text-sm text-slate-500 flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading document library...
+        </p>
+      ) : null}
+
+      {loadState === "error" ? (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <span>{error || "Could not load documents."}</span>
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -50,11 +99,13 @@ export default function DocumentsPage() {
             <div key={doc.id} className="rounded-md border p-3 bg-white">
               <p className="font-medium text-sm">{doc.title}</p>
               <p className="text-xs text-slate-500 uppercase tracking-wide mt-1">
-                {doc.format || "doc"} • {doc.created_at ? new Date(doc.created_at).toLocaleString() : "recent"}
+                {doc.format || "doc"} • {formatDate(doc.created_at)}
               </p>
             </div>
           ))}
-          {!loading && documents.length === 0 ? <p className="text-sm text-slate-500">No generated documents yet.</p> : null}
+          {loadState !== "loading" && documents.length === 0 ? (
+            <p className="text-sm text-slate-500">No generated documents yet.</p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -71,13 +122,19 @@ export default function DocumentsPage() {
             <div key={upload.id} className="rounded-md border p-3 bg-white">
               <p className="font-medium text-sm">{upload.filename}</p>
               <p className="text-xs text-slate-500 uppercase tracking-wide mt-1">
-                {upload.content_type || "file"} • {upload.created_at ? new Date(upload.created_at).toLocaleString() : "recent"}
+                {upload.content_type || "file"} • {formatDate(upload.created_at)}
               </p>
             </div>
           ))}
-          {!loading && uploads.length === 0 ? <p className="text-sm text-slate-500">No uploads yet.</p> : null}
+          {loadState !== "loading" && uploads.length === 0 ? (
+            <p className="text-sm text-slate-500">No uploads yet.</p>
+          ) : null}
         </CardContent>
       </Card>
+
+      {loadState === "empty" ? (
+        <p className="text-sm text-slate-500">No documents or uploads yet. Generate or upload files to see them here.</p>
+      ) : null}
     </div>
   );
 }
