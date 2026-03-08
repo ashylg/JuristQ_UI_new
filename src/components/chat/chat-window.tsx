@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, BrainCircuit, Download, Loader2 } from "lucide-react";
+import { AlertCircle, BrainCircuit, Download, Loader2, RefreshCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { ChatInput } from "./chat-input";
 import { ChatMessage, MessageProps } from "./chat-message";
 import { FileUpload } from "./file-upload";
-import { generateDocument, sendMessage, uploadFile } from "@/lib/api";
+import { fetchGeneratedDocument, generateDocument, sendMessage, uploadFile } from "@/lib/api";
 import { ReasoningEffort, useSessionConfig } from "@/lib/session-config";
 import { getThreadHistory } from "@/lib/workspace-api";
 
@@ -39,12 +39,7 @@ function safeFilename(base: string, ext: "docx" | "pdf"): string {
   return `${clean}.${ext}`;
 }
 
-function downloadTextFile(filename: string, content: string, format: "docx" | "pdf") {
-  const mime =
-    format === "pdf"
-      ? "application/pdf"
-      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  const blob = new Blob([content], { type: mime });
+function downloadBlob(filename: string, blob: Blob) {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = href;
@@ -53,6 +48,14 @@ function downloadTextFile(filename: string, content: string, format: "docx" | "p
   anchor.click();
   document.body.removeChild(anchor);
   URL.revokeObjectURL(href);
+}
+
+function textAsBlob(content: string, format: "docx" | "pdf") {
+  const mime =
+    format === "pdf"
+      ? "application/pdf"
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return new Blob([content], { type: mime });
 }
 
 export function ChatWindow() {
@@ -68,6 +71,7 @@ export function ChatWindow() {
   const [isDownloading, setIsDownloading] = useState<"docx" | "pdf" | null>(null);
   const [chatId, setChatId] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
 
   const jurisdiction = "NZ";
   const category = "general";
@@ -158,6 +162,7 @@ export function ChatWindow() {
   const handleSend = async (text: string) => {
     const userMessage: ChatMessageItem = { id: makeMessageId("user"), role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
+    setLastPrompt(text);
     setIsSending(true);
     setError(null);
 
@@ -216,9 +221,15 @@ export function ChatWindow() {
     }
   };
 
+  const retryLastPrompt = async () => {
+    if (!lastPrompt || isSending || isThreadLoading) return;
+    await handleSend(lastPrompt);
+  };
+
   const handleUpload = async (file: File) => {
     setError(null);
     setIsUploading(true);
+
     try {
       const upload = await uploadFile(file, "ultra");
       setMessages((prev) => [
@@ -226,10 +237,26 @@ export function ChatWindow() {
         {
           id: makeMessageId("upload"),
           role: "assistant",
-          content: `File uploaded successfully: **${upload.filename}** (${(upload.bytes / 1024).toFixed(1)} KB).\n\nI can now use this file as reference context in this thread.`,
+          content: `File uploaded successfully: **${upload.filename}** (${(upload.bytes / 1024).toFixed(
+            1
+          )} KB).\n\nI can now use this file as reference context in this thread.`,
           model: "system",
         },
       ]);
+      notifyThreadsChanged();
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setError(message);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId("upload_error"),
+          role: "assistant",
+          content: `I couldn't upload that file. ${message}`,
+          model: "system",
+        },
+      ]);
+      throw err;
     } finally {
       setIsUploading(false);
     }
@@ -245,11 +272,12 @@ export function ChatWindow() {
 
     try {
       const generated = await generateDocument("Legal Document", latestAssistantAnswer.content, format);
-      downloadTextFile(generated.filename || defaultFilename, latestAssistantAnswer.content, format);
+      const blob = await fetchGeneratedDocument(generated.downloadUrl);
+      downloadBlob(generated.filename || defaultFilename, blob);
       notifyThreadsChanged();
     } catch (err) {
-      downloadTextFile(defaultFilename, latestAssistantAnswer.content, format);
-      setError(`Generated a local ${format.toUpperCase()} download fallback: ${getErrorMessage(err)}`);
+      downloadBlob(defaultFilename, textAsBlob(latestAssistantAnswer.content, format));
+      setError(`Unable to fetch generated ${format.toUpperCase()} file. Downloaded local fallback instead: ${getErrorMessage(err)}`);
     } finally {
       setIsDownloading(null);
     }
@@ -261,7 +289,8 @@ export function ChatWindow() {
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
           <span className="font-semibold tracking-wide">
-            Juristiq Live Session <span className="text-primary-foreground/60 text-sm font-normal">| {jurisdiction} • {category}</span>
+            Juristiq Live Session{" "}
+            <span className="text-primary-foreground/60 text-sm font-normal">| {jurisdiction} • {category}</span>
           </span>
           {deepAnalysis ? (
             <Badge variant="secondary" className="bg-accent/20 text-accent-foreground text-[10px] h-5 border-none">
@@ -360,9 +389,15 @@ export function ChatWindow() {
           ) : null}
 
           {error ? (
-            <div className="mx-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm flex items-center gap-2">
+            <div className="mx-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm flex flex-wrap items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
+              <span className="flex-1 min-w-[200px]">{error}</span>
+              {lastPrompt && !isSending ? (
+                <Button variant="outline" size="sm" className="h-7" onClick={() => void retryLastPrompt()}>
+                  <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Retry
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>

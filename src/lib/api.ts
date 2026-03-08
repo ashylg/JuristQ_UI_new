@@ -18,6 +18,18 @@ export interface ChatResponse {
 
 type ApiErrorPayload = { error?: string; detail?: string };
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly detail?: string;
+
+  constructor(message: string, status: number, detail?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function readJson<T>(res: Response): Promise<T> {
   return (await res.json().catch(() => ({}))) as T;
 }
@@ -25,7 +37,7 @@ async function readJson<T>(res: Response): Promise<T> {
 async function ensureOk(res: Response, fallback: string): Promise<void> {
   if (res.ok) return;
   const payload = await readJson<ApiErrorPayload>(res);
-  throw new Error(payload.error || payload.detail || fallback);
+  throw new ApiRequestError(payload.error || payload.detail || fallback, res.status, payload.detail);
 }
 
 export async function sendMessage(
@@ -114,4 +126,40 @@ export async function generateDocument(
 
   await ensureOk(res, "Document generation failed");
   return readJson<GenerateDocumentResponse>(res);
+}
+
+function resolveDownloadUrl(downloadUrl: string): string {
+  if (!downloadUrl) return "";
+
+  if (/^https?:\/\//i.test(downloadUrl)) {
+    return downloadUrl;
+  }
+
+  if (downloadUrl.startsWith("/api/backend")) {
+    return downloadUrl;
+  }
+
+  if (downloadUrl.startsWith("/")) {
+    return `${API_BASE}${downloadUrl}`;
+  }
+
+  return `${API_BASE}/${downloadUrl}`;
+}
+
+export async function fetchGeneratedDocument(downloadUrl: string): Promise<Blob> {
+  const resolved = resolveDownloadUrl(downloadUrl);
+  if (!resolved) {
+    throw new Error("Download link was missing from document generation response.");
+  }
+
+  const response = await fetch(resolved, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new ApiRequestError(`Failed to download generated document (${response.status})`, response.status);
+  }
+
+  return response.blob();
 }
